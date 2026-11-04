@@ -401,7 +401,7 @@ function Main() {
               <View style={styles.titleWrap}>
                 <Sketch fill={YELLOW} stroke={null} jitter={4} seed={21} />
                 <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.05 }]}>
-                  Êtes-vous un gros dégueulasse ?
+                  Es-tu un gros dégueulasse ?
                 </Text>
               </View>
               <Text style={[styles.hand, compact && { fontSize: 14 }]} numberOfLines={2}>
