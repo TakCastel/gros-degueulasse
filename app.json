@@ -23,6 +23,9 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/gros-degueulasse"
+    }
   }
 }

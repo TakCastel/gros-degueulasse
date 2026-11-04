@@ -15,8 +15,6 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
-import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy';
-import { Kalam_700Bold } from '@expo-google-fonts/kalam';
 import { Sketch, SketchLineV } from './components/Sketch';
 import { PaperToast, type Toast } from './components/PaperToast';
 import { ANNULATIONS, QUESTIONS, SOUS_TITRES, SURNOMS, VANNES, pick, verdictTextes } from './wording';
@@ -165,7 +163,11 @@ const jours = (n: number) => `${n} jour${n > 1 ? 's' : ''}`;
 // ---------- App ----------
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({ LuckiestGuy_400Regular, Kalam_700Bold });
+  const [fontsLoaded, fontError] = useFonts({
+    // Polices copiées dans assets/ (et pas lues depuis node_modules) pour que GitHub Pages les publie
+    LuckiestGuy_400Regular: require('./assets/fonts/LuckiestGuy_400Regular.ttf'),
+    Kalam_700Bold: require('./assets/fonts/Kalam_700Bold.ttf'),
+  });
   if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: PAPER_BG }} />;
   return (
     <SafeAreaProvider>
