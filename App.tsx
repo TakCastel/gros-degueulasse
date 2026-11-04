@@ -436,7 +436,7 @@ function Main() {
               </Text>
               {!compact && (
                 <Text style={[styles.hand, styles.vanne]} numberOfLines={1}>
-                  « Clique sur un vice, on ne juge pas. Si, un peu. »
+                  Clique sur un vice, on ne juge pas. Si, un peu.
                 </Text>
               )}
             </View>
@@ -444,7 +444,7 @@ function Main() {
 
           {compact && (
             <Text style={[styles.hand, styles.vanne, { fontSize: 14 }]} numberOfLines={2}>
-              « Clique sur un vice, on ne juge pas. Si, un peu. »
+              Clique sur un vice, on ne juge pas. Si, un peu.
             </Text>
           )}
 
