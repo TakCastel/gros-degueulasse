@@ -16,6 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import { Bangers_400Regular } from '@expo-google-fonts/bangers';
 import { PatrickHand_400Regular } from '@expo-google-fonts/patrick-hand';
+import { Sketch, SketchLineV } from './components/Sketch';
+import { PaperToast, type Toast } from './components/PaperToast';
 
 // ---------- Les vices ----------
 
@@ -229,7 +231,7 @@ function Main() {
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
   const [selected, setSelected] = useState(todayKey);
-  const [vanne, setVanne] = useState('Clique sur un vice, on ne juge pas. Si, un peu.');
+  const [toast, setToast] = useState<Toast | null>(null);
   const [gridArea, setGridArea] = useState({ w: 0, h: 0 });
   const gridScroll = useRef<ScrollViewInstance>(null);
 
@@ -256,7 +258,8 @@ function Main() {
       return copy;
     });
     const v = VICE_BY_ID[id];
-    setVanne(delta > 0 ? v.vannes[Math.floor(Math.random() * v.vannes.length)] : 'Rétropédalage. On a tous vu.');
+    const text = delta > 0 ? v.vannes[Math.floor(Math.random() * v.vannes.length)] : 'Rétropédalage. On a tous vu.';
+    setToast((t) => ({ id: (t?.id ?? 0) + 1, text }));
   };
 
   // Année en cours, découpée en semaines (lundi → dimanche)
@@ -373,6 +376,7 @@ function Main() {
       </View>
       <ScrollView
         ref={gridScroll}
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() =>
           gridScroll.current?.scrollTo({
@@ -411,7 +415,7 @@ function Main() {
             )}
             <View style={{ flex: 1, gap: compact ? 4 : 8 }}>
               <View style={styles.titleWrap}>
-                <View style={styles.highlight} />
+                <Sketch fill={YELLOW} stroke={null} jitter={4} seed={21} />
                 <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.05 }]}>
                   Êtes-vous un gros dégueulasse ?
                 </Text>
@@ -424,7 +428,7 @@ function Main() {
               </Text>
               {!compact && (
                 <Text style={[styles.hand, styles.vanne]} numberOfLines={1}>
-                  « {vanne} »
+                  « Clique sur un vice, on ne juge pas. Si, un peu. »
                 </Text>
               )}
             </View>
@@ -432,13 +436,14 @@ function Main() {
 
           {compact && (
             <Text style={[styles.hand, styles.vanne, { fontSize: 14 }]} numberOfLines={2}>
-              « {vanne} »
+              « Clique sur un vice, on ne juge pas. Si, un peu. »
             </Text>
           )}
 
-          <View style={[styles.box, styles.gridBox, compact && { padding: 8 }]}>
+          <View style={[styles.gridBox, compact && { padding: 8 }]}>
+            <Sketch fill={PAPER_BG} shadow seed={5} jitter={compact ? 1.4 : 2.2} />
             <View
-              style={{ flex: 1, justifyContent: 'center' }}
+              style={{ flex: 1, minHeight: 0, justifyContent: 'center', overflow: 'hidden' }}
               onLayout={(e) => {
                 const { width: w, height: h } = e.nativeEvent.layout;
                 if (Math.abs(w - gridArea.w) > 1 || Math.abs(h - gridArea.h) > 1) setGridArea({ w, h });
@@ -456,24 +461,35 @@ function Main() {
           ) : (
             <View style={styles.stats}>
               <View style={styles.calendarIcon}>
-                <View style={styles.calendarTop} />
+                <Sketch fill="#FFF7E8" shadow seed={9} />
+                <View style={styles.calendarTop}>
+                  <Sketch fill={RED} seed={10} strokeWidth={2.5} jitter={1.2} />
+                </View>
                 <Text style={styles.calendarYear}>{year}</Text>
               </View>
               <View style={styles.stat}>
                 <Text style={styles.statLabel}>Série actuelle</Text>
-                <Text style={styles.statValue}>{jours(current)}</Text>
+                <View style={styles.statValueWrap}>
+                  <Sketch fill={YELLOW} stroke={null} jitter={3.5} seed={31} />
+                  <Text style={styles.statValue}>{jours(current)}</Text>
+                </View>
               </View>
               <View style={styles.stat}>
                 <Text style={styles.statLabel}>🏆 Meilleure série</Text>
-                <Text style={styles.statValue}>{jours(best)}</Text>
+                <View style={styles.statValueWrap}>
+                  <Sketch fill={YELLOW} stroke={null} jitter={3.5} seed={37} />
+                  <Text style={styles.statValue}>{jours(best)}</Text>
+                </View>
               </View>
             </View>
           )}
         </View>
 
         {/* ----- Droite : les vices ----- */}
+        <SketchLineV width={compact ? 2 : 3} />
         <View style={[styles.sidebar, { width: sidebarW }, compact && styles.sidebarCompact]}>
           <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
+            <Sketch fill={RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
             <Text
               style={[styles.stickerText, compact && { fontSize: 15, lineHeight: 17 }]}
               numberOfLines={3}
@@ -490,12 +506,12 @@ function Main() {
                 onPress={() => bump(v.id, 1)}
                 onLongPress={() => count > 0 && bump(v.id, -1)}
                 style={({ pressed }) => [
-                  styles.box,
                   styles.button,
                   compact && styles.buttonCompact,
                   { transform: [{ rotate: i % 2 ? '0.6deg' : '-0.5deg' }, { scale: pressed ? 0.95 : 1 }] },
                 ]}
               >
+                <Sketch fill={PAPER_BG} shadow seed={100 + i * 17} strokeWidth={compact ? 2.2 : 3} jitter={compact ? 1.3 : 1.8} />
                 <Image
                   source={ICONS[v.id]}
                   style={[styles.icon, compact && styles.iconCompact]}
@@ -521,13 +537,17 @@ function Main() {
           </Text>
         </View>
       </View>
+      <PaperToast toast={toast} font={HAND} maxWidth={Math.min(460, width - 40)} top={compact ? 70 : height * 0.3} />
+      {/* Grain de papier imprimé par-dessus tout : ronge un peu l'encre des textes et des traits */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Image source={require('./assets/grain.png')} resizeMode="repeat" style={{ width: '100%', height: '100%' }} />
+      </View>
     </SafeAreaView>
   );
 }
 
 const TITLE = 'Bangers_400Regular';
 const HAND = 'PatrickHand_400Regular';
-const POP_SHADOW = `3px 4px 0px ${INK}`;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PAPER_BG },
@@ -543,31 +563,13 @@ const styles = StyleSheet.create({
   pageCompact: { padding: 8, gap: 8 },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3 },
-  highlight: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: YELLOW,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 6,
-    borderBottomRightRadius: 22,
-    borderBottomLeftRadius: 8,
-    transform: [{ rotate: '-1.2deg' }],
-  },
+  titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, transform: [{ rotate: '-1deg' }] },
   title: { fontFamily: TITLE, color: INK, textTransform: 'uppercase', letterSpacing: 1 },
   hand: { fontFamily: HAND, fontSize: 21, color: INK },
   underlineRed: { textDecorationLine: 'underline', textDecorationColor: RED, textDecorationStyle: 'solid' },
   vanne: { fontSize: 19, opacity: 0.85 },
 
-  box: {
-    backgroundColor: PAPER_BG,
-    borderWidth: 3,
-    borderColor: INK,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 16,
-    borderBottomLeftRadius: 10,
-  },
-  gridBox: { flex: 1, padding: 14, boxShadow: POP_SHADOW },
+  gridBox: { flex: 1, padding: 16 },
   month: { position: 'absolute', fontFamily: TITLE, color: INK, letterSpacing: 0.5 },
   monthSide: { position: 'relative', textAlign: 'right', paddingRight: 4 },
   dayLabel: { fontFamily: TITLE, color: INK, textAlign: 'center' },
@@ -576,47 +578,17 @@ const styles = StyleSheet.create({
   cellSelected: { borderWidth: 2.5, borderColor: INK },
 
   stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 24 },
-  calendarIcon: {
-    width: 96,
-    height: 76,
-    borderWidth: 3,
-    borderColor: INK,
-    borderRadius: 6,
-    backgroundColor: '#FFF7E8',
-    overflow: 'hidden',
-    alignItems: 'center',
-    transform: [{ rotate: '-4deg' }],
-    boxShadow: POP_SHADOW,
-  },
-  calendarTop: { alignSelf: 'stretch', height: 18, backgroundColor: RED, borderBottomWidth: 3, borderColor: INK },
+  calendarIcon: { width: 96, height: 78, alignItems: 'center', padding: 4, transform: [{ rotate: '-4deg' }] },
+  calendarTop: { alignSelf: 'stretch', height: 18 },
   calendarYear: { fontFamily: TITLE, fontSize: 32, color: INK, marginTop: 4 },
   stat: { alignItems: 'center', gap: 4 },
   statLabel: { fontFamily: TITLE, fontSize: 20, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
-  statValue: {
-    fontFamily: HAND,
-    fontSize: 32,
-    color: INK,
-    backgroundColor: YELLOW,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 16,
-    borderBottomRightRadius: 20,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 8,
-    overflow: 'hidden',
-  },
+  statValueWrap: { paddingHorizontal: 20, paddingVertical: 2 },
+  statValue: { fontFamily: HAND, fontSize: 32, color: INK },
 
-  sidebar: { gap: 12, borderLeftWidth: 3, borderColor: INK, paddingLeft: 24 },
-  sidebarCompact: { gap: 7, borderLeftWidth: 2, paddingLeft: 8 },
-  sticker: {
-    backgroundColor: RED,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 8,
-    borderBottomLeftRadius: 18,
-    transform: [{ rotate: '-1.5deg' }],
-  },
+  sidebar: { gap: 12, paddingLeft: 18 },
+  sidebarCompact: { gap: 7, paddingLeft: 4 },
+  sticker: { paddingVertical: 14, paddingHorizontal: 16, transform: [{ rotate: '-1.5deg' }] },
   stickerText: { fontFamily: TITLE, fontSize: 28, lineHeight: 30, color: INK, textAlign: 'center', textTransform: 'uppercase' },
   button: {
     flex: 1,
@@ -624,16 +596,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    paddingHorizontal: 16,
-    boxShadow: POP_SHADOW,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
   },
   buttonCompact: {
     flexDirection: 'column',
     justifyContent: 'center',
     gap: 0,
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    boxShadow: `2px 3px 0px ${INK}`,
+    paddingHorizontal: 6,
   },
   icon: { width: 52, height: 46 },
   iconCompact: { width: 46, height: 40 },
