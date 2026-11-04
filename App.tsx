@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  AppState,
   useWindowDimensions,
   type ScrollViewInstance,
 } from 'react-native';
@@ -18,6 +19,7 @@ import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy';
 import { Kalam_700Bold } from '@expo-google-fonts/kalam';
 import { Sketch, SketchLineV } from './components/Sketch';
 import { PaperToast, type Toast } from './components/PaperToast';
+import { ANNULATIONS, QUESTIONS, SOUS_TITRES, SURNOMS, VANNES, pick, verdictTextes } from './wording';
 
 // ---------- Les vices ----------
 
@@ -28,7 +30,6 @@ type Vice = {
   emoji: string;
   label: string;
   color: [number, number, number];
-  vannes: string[];
 };
 
 const ORANGE: [number, number, number] = [235, 120, 20];
@@ -39,55 +40,30 @@ const VICES: Vice[] = [
     emoji: '🍺',
     label: 'Bière',
     color: ORANGE,
-    vannes: [
-      "Une petite mousse, c'est du pain liquide.",
-      "C'est la dernière. Comme les 4 d'avant.",
-      'Le houblon, cette salade des braves.',
-    ],
   },
   {
     id: 'vin',
     emoji: '🍷',
     label: 'Vin',
     color: ORANGE,
-    vannes: [
-      'Un verre de rouge par jour, a dit un médecin mort.',
-      'Tu fais de la dégustation. Évidemment.',
-      'Il a du nez. Toi aussi, il est rouge.',
-    ],
   },
   {
     id: 'cocktail',
     emoji: '🍹',
     label: 'Cocktail',
     color: ORANGE,
-    vannes: [
-      "Y'a des fruits dedans, ça compte comme 5 par jour.",
-      'Un mojito, ou un sirop pour adultes tristes.',
-      'Le parasol en papier ne te sauvera pas.',
-    ],
   },
   {
     id: 'clope',
     emoji: '🚬',
     label: 'Clope',
     color: [110, 62, 25],
-    vannes: [
-      "Juste une, pour l'ambiance.",
-      'Tes poumons ont envoyé une lettre de démission.',
-      'Ça sent le vieux bar PMU, bravo.',
-    ],
   },
   {
     id: 'bouffe',
     emoji: '🍔',
     label: 'Bouffe sale',
     color: [200, 25, 25],
-    vannes: [
-      "Le kebab de 2h du mat', un classique.",
-      'Ton cholestérol fait des pompes.',
-      'Double cheese, double honte.',
-    ],
   },
   {
     id: 'paris',
@@ -95,11 +71,6 @@ const VICES: Vice[] = [
     label: 'Paris sportifs',
     // Caca d'oie, la couleur officielle du ticket perdant
     color: [138, 150, 30],
-    vannes: [
-      "Le combiné à 47 contre 1, c'était sûr pourtant.",
-      'Encore un nul en 3e division moldave.',
-      "L'appli te dit bravo. Ton banquier, moins.",
-    ],
   },
 ];
 
@@ -166,15 +137,6 @@ function dayColor(counts: DayCounts | undefined): string {
 
 // ---------- Verdict ----------
 
-function verdict(score: number): string {
-  if (score === 0) return 'Propre sur toi. Suspect, même.';
-  if (score <= 3) return 'Petit joueur. Tu bois du Vittel ou quoi ?';
-  if (score <= 8) return 'Ça commence à sentir le fennec.';
-  if (score <= 15) return 'Dégueulasse, oui. Gros, pas encore.';
-  if (score <= 25) return 'GROS DÉGUEULASSE. Officiellement.';
-  return 'Légende vivante du comptoir. Respect et inquiétude.';
-}
-
 // Séries de jours "sales" (au moins un vice). Une journée vide en cours ne casse pas la série.
 function streaks(journal: Journal, today: Date) {
   const keys = Object.keys(journal).sort();
@@ -232,6 +194,16 @@ function Main() {
   const todayKey = toKey(today);
   const [selected, setSelected] = useState(todayKey);
   const [toast, setToast] = useState<Toast | null>(null);
+  // Nouvelle graine à chaque ouverture et à chaque retour dans l'app : les textes changent
+  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e6));
+  useEffect(() => {
+    let prev = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (prev !== 'active' && next === 'active') setSeed(Math.floor(Math.random() * 1e6));
+      prev = next;
+    });
+    return () => sub.remove();
+  }, []);
   const [gridArea, setGridArea] = useState({ w: 0, h: 0 });
   const gridScroll = useRef<ScrollViewInstance>(null);
 
@@ -257,8 +229,8 @@ function Main() {
       else copy[selected] = day;
       return copy;
     });
-    const v = VICE_BY_ID[id];
-    const text = delta > 0 ? v.vannes[Math.floor(Math.random() * v.vannes.length)] : 'Rétropédalage. On a tous vu.';
+    const list = delta > 0 ? VANNES[id] : ANNULATIONS;
+    const text = list[Math.floor(Math.random() * list.length)];
     setToast((t) => ({ id: (t?.id ?? 0) + 1, text }));
   };
 
@@ -308,6 +280,10 @@ function Main() {
   const selectedLabel =
     selected === todayKey ? "aujourd'hui" : `le ${selectedDate.getDate()} ${MOIS[selectedDate.getMonth()]}`;
   const selectedCounts = journal[selected];
+
+  const sousTitre = pick(SOUS_TITRES, seed, 2);
+  const question = pick(QUESTIONS, seed, 3).replace('{jour}', selectedLabel).replace('{nom}', pick(SURNOMS, seed, 4));
+  const longQuestion = question.length > 42;
 
   const sidebarW = compact ? clamp(width * 0.36, 118, 180) : clamp(width * 0.24, 230, 320);
   const leftW = width - sidebarW - (compact ? 24 : 72);
@@ -432,11 +408,11 @@ function Main() {
                 <Text style={styles.underlineRed}>
                   {score7} vice{score7 > 1 ? 's' : ''}
                 </Text>{' '}
-                cette semaine. {verdict(score7)}
+                cette semaine. {pick(verdictTextes(score7), seed, 1)}
               </Text>
               {!compact && (
                 <Text style={[styles.hand, styles.vanne]} numberOfLines={1}>
-                  Clique sur un vice, on ne juge pas. Si, un peu.
+                  {sousTitre}
                 </Text>
               )}
             </View>
@@ -444,7 +420,7 @@ function Main() {
 
           {compact && (
             <Text style={[styles.hand, styles.vanne, { fontSize: 14 }]} numberOfLines={2}>
-              Clique sur un vice, on ne juge pas. Si, un peu.
+              {sousTitre}
             </Text>
           )}
 
@@ -502,11 +478,15 @@ function Main() {
           <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
             <Sketch fill={RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
             <Text
-              style={[styles.stickerText, compact && { fontSize: 13, lineHeight: 16 }]}
-              numberOfLines={3}
+              style={[
+                styles.stickerText,
+                longQuestion && { fontSize: 18, lineHeight: 23 },
+                compact && { fontSize: longQuestion ? 11 : 13, lineHeight: longQuestion ? 14 : 16 },
+              ]}
+              numberOfLines={5}
               adjustsFontSizeToFit
             >
-              Qu'as-tu fait {selectedLabel}, misérable ?
+              {question}
             </Text>
           </View>
           {VICES.map((v, i) => {
