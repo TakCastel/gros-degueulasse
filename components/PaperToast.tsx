@@ -47,7 +47,7 @@ export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null
     <View pointerEvents="none" style={[styles.layer, { paddingTop: top }]}>
       <Animated.View style={[styles.paper, { maxWidth }, style]}>
         <Sketch fill="#FFFBF0" shadow seed={current.id * 13 + 5} strokeWidth={2.5} jitter={1.6} />
-        <Text style={[styles.text, { fontFamily: font }]}>« {current.text} »</Text>
+        <Text style={[styles.text, { fontFamily: font }]}>{current.text}</Text>
       </Animated.View>
     </View>
   );
