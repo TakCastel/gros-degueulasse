@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
+  type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts } from 'expo-font';
+import { Bangers_400Regular } from '@expo-google-fonts/bangers';
+import { PatrickHand_400Regular } from '@expo-google-fonts/patrick-hand';
 
 // ---------- Les vices ----------
 
@@ -115,13 +120,17 @@ const addDays = (d: Date, n: number) => {
 const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
 
 const MOIS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+const MOIS_COURTS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEP', 'OCT', 'NOV', 'DÉC'];
 const JOURS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const WEEKS_SHOWN = 30;
 
 // ---------- Couleurs ----------
 
-const EMPTY_CELL = '#E8DFC9';
-const PAPER: [number, number, number] = [232, 223, 201];
+const PAPER_BG = '#FBEDD6';
+const INK = '#1C1714';
+const YELLOW = '#F8D33A';
+const RED = '#E4483A';
+const EMPTY: [number, number, number] = [214, 201, 181];
+const EMPTY_CELL = `rgb(${EMPTY.join(',')})`;
 
 const total = (c: DayCounts | undefined) =>
   c ? Object.values(c).reduce((a, b) => a + (b ?? 0), 0) : 0;
@@ -142,10 +151,10 @@ function dayColor(counts: DayCounts | undefined): string {
   r /= n; g /= n; b /= n;
 
   // 1 vice : couleur pâle, puis ça s'intensifie jusqu'à 4
-  const alpha = Math.min(1, 0.35 + 0.2 * (n - 1));
-  r = PAPER[0] + (r - PAPER[0]) * alpha;
-  g = PAPER[1] + (g - PAPER[1]) * alpha;
-  b = PAPER[2] + (b - PAPER[2]) * alpha;
+  const alpha = Math.min(1, 0.45 + 0.18 * (n - 1));
+  r = EMPTY[0] + (r - EMPTY[0]) * alpha;
+  g = EMPTY[1] + (g - EMPTY[1]) * alpha;
+  b = EMPTY[2] + (b - EMPTY[2]) * alpha;
 
   // Au-delà de 4, ça tourne au bordeaux de la honte
   const darken = Math.max(0.35, 1 - 0.1 * Math.max(0, n - 4));
@@ -163,9 +172,34 @@ function verdict(score: number): string {
   return 'Légende vivante du comptoir. Respect et inquiétude.';
 }
 
+// Séries de jours "sales" (au moins un vice). Une journée vide en cours ne casse pas la série.
+function streaks(journal: Journal, today: Date) {
+  const keys = Object.keys(journal).sort();
+  if (keys.length === 0) return { current: 0, best: 0 };
+
+  let best = 0;
+  let run = 0;
+  for (let d = new Date(keys[0] + 'T12:00:00'); d <= today; d = addDays(d, 1)) {
+    run = total(journal[toKey(d)]) > 0 ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+
+  let current = 0;
+  let d = total(journal[toKey(today)]) > 0 ? today : addDays(today, -1);
+  while (total(journal[toKey(d)]) > 0) {
+    current++;
+    d = addDays(d, -1);
+  }
+  return { current, best };
+}
+
+const jours = (n: number) => `${n} jour${n > 1 ? 's' : ''}`;
+
 // ---------- App ----------
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ Bangers_400Regular, PatrickHand_400Regular });
+  if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: PAPER_BG }} />;
   return (
     <SafeAreaProvider>
       <Main />
@@ -175,12 +209,14 @@ export default function App() {
 
 function Main() {
   const { width } = useWindowDimensions();
+  const wide = width >= 900;
   const [journal, setJournal] = useState<Journal>({});
   const [loaded, setLoaded] = useState(false);
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
   const [selected, setSelected] = useState(todayKey);
   const [vanne, setVanne] = useState('Clique sur un vice, on ne juge pas. Si, un peu.');
+  const gridScroll = useRef<ScrollViewInstance>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -208,13 +244,17 @@ function Main() {
     setVanne(delta > 0 ? v.vannes[Math.floor(Math.random() * v.vannes.length)] : 'Rétropédalage. On a tous vu.');
   };
 
-  // Semaines du plus récent (en haut) au plus ancien
+  // Année en cours : une colonne par semaine, une ligne par jour
+  const year = today.getFullYear();
   const weeks = useMemo(() => {
-    const monday = addDays(today, -weekdayIndex(today));
-    return Array.from({ length: WEEKS_SHOWN }, (_, w) =>
-      Array.from({ length: 7 }, (_, d) => addDays(monday, -7 * w + d)),
-    );
-  }, [today]);
+    const jan1 = new Date(year, 0, 1, 12);
+    const start = addDays(jan1, -weekdayIndex(jan1));
+    const out: Date[][] = [];
+    for (let w = start; w.getFullYear() <= year; w = addDays(w, 7)) {
+      out.push(Array.from({ length: 7 }, (_, d) => addDays(w, d)));
+    }
+    return out;
+  }, [year]);
 
   const score7 = useMemo(() => {
     let s = 0;
@@ -222,178 +262,293 @@ function Main() {
     return s;
   }, [journal, today]);
 
-  const gridWidth = Math.min(width - 32 - 44, 360);
-  const cell = Math.floor((gridWidth - 6 * 5) / 7);
-  const selectedCounts = journal[selected];
+  const { current, best } = useMemo(() => streaks(journal, today), [journal, today]);
+
+  // Taille des cases : on remplit la largeur dispo, sinon on scrolle
+  const GAP = 3;
+  const sidebarW = wide ? 300 : 0;
+  const gridAvail = width - sidebarW - (wide ? 72 : 32) - 28 - 24;
+  const fitted = Math.floor((gridAvail - GAP * (weeks.length - 1)) / weeks.length);
+  const cell = Math.max(13, Math.min(20, fitted));
+  const scrolls = fitted < 13;
+  const todayCol = weeks.findIndex((w) => w.some((d) => toKey(d) === todayKey));
+
   const selectedDate = new Date(selected + 'T12:00:00');
   const selectedLabel =
-    selected === todayKey
-      ? "aujourd'hui"
-      : `le ${selectedDate.getDate()} ${MOIS[selectedDate.getMonth()]}`;
+    selected === todayKey ? "aujourd'hui" : `le ${selectedDate.getDate()} ${MOIS[selectedDate.getMonth()]}`;
+  const selectedCounts = journal[selected];
+
+  const header = (
+    <View style={[styles.header, !wide && { flexDirection: 'column', alignItems: 'stretch' }]}>
+      <Image source={require('./assets/mascotte.png')} style={wide ? styles.mascotte : styles.mascotteSmall} />
+      <View style={{ flex: wide ? 1 : undefined, gap: 10 }}>
+        <View style={styles.titleWrap}>
+          <View style={styles.highlight} />
+          <Text style={[styles.title, !wide && { fontSize: 38, lineHeight: 40 }]}>
+            Êtes-vous un gros dégueulasse ?
+          </Text>
+        </View>
+        <Text style={styles.hand}>
+          <Text style={styles.underlineRed}>
+            {score7} vice{score7 > 1 ? 's' : ''}
+          </Text>{' '}
+          cette semaine. {verdict(score7)}
+        </Text>
+        <Text style={[styles.hand, styles.vanne]} numberOfLines={2}>
+          « {vanne} »
+        </Text>
+      </View>
+    </View>
+  );
+
+  const grid = (
+    <View style={[styles.box, styles.gridBox]}>
+      <ScrollView
+        ref={gridScroll}
+        horizontal
+        scrollEnabled={scrolls}
+        showsHorizontalScrollIndicator={false}
+        onContentSizeChange={() => {
+          if (scrolls) gridScroll.current?.scrollTo({ x: Math.max(0, (todayCol - 8) * (cell + GAP)), animated: false });
+        }}
+      >
+        <View>
+          <View style={{ height: 22, marginLeft: 24 }}>
+            {weeks.map((w, i) => {
+              const first = w.find((d) => d.getDate() === 1 && d.getFullYear() === year);
+              if (!first) return null;
+              return (
+                <Text key={i} style={[styles.month, { left: i * (cell + GAP) }]}>
+                  {MOIS_COURTS[first.getMonth()]}
+                </Text>
+              );
+            })}
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: 24, gap: GAP }}>
+              {JOURS.map((j, i) => (
+                <Text key={i} style={[styles.dayLabel, { height: cell, lineHeight: cell }]}>
+                  {j}
+                </Text>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', gap: GAP }}>
+              {weeks.map((week, w) => (
+                <View key={w} style={{ gap: GAP }}>
+                  {week.map((d) => {
+                    const key = toKey(d);
+                    const outside = d.getFullYear() !== year;
+                    const future = d > today && key !== todayKey;
+                    return (
+                      <Pressable
+                        key={key}
+                        disabled={outside || future}
+                        onPress={() => setSelected(key)}
+                        style={[
+                          styles.cell,
+                          {
+                            width: cell,
+                            height: cell,
+                            backgroundColor: outside ? 'transparent' : dayColor(journal[key]),
+                            opacity: future ? 0.45 : 1,
+                          },
+                          key === todayKey && styles.cellToday,
+                          key === selected && styles.cellSelected,
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  const stats = (
+    <View style={[styles.stats, !wide && { gap: 12 }]}>
+      <View style={styles.calendarIcon}>
+        <View style={styles.calendarTop} />
+        <Text style={styles.calendarYear}>{year}</Text>
+      </View>
+      <View style={styles.stat}>
+        <Text style={styles.statLabel}>Série actuelle</Text>
+        <Text style={styles.statValue}>{jours(current)}</Text>
+      </View>
+      <View style={styles.stat}>
+        <Text style={styles.statLabel}>🏆 Meilleure série</Text>
+        <Text style={styles.statValue}>{jours(best)}</Text>
+      </View>
+    </View>
+  );
+
+  const sidebar = (
+    <View style={[styles.sidebar, wide ? styles.sidebarWide : null]}>
+      <View style={styles.sticker}>
+        <Text style={styles.stickerText}>Qu'as-tu fait {selectedLabel}, misérable ?</Text>
+      </View>
+      <View style={[styles.buttons, !wide && styles.buttonsGrid]}>
+        {VICES.map((v, i) => {
+          const count = selectedCounts?.[v.id] ?? 0;
+          return (
+            <Pressable
+              key={v.id}
+              onPress={() => bump(v.id, 1)}
+              onLongPress={() => count > 0 && bump(v.id, -1)}
+              style={({ pressed }) => [
+                styles.box,
+                styles.button,
+                !wide && styles.buttonHalf,
+                { transform: [{ rotate: i % 2 ? '0.6deg' : '-0.5deg' }, { scale: pressed ? 0.95 : 1 }] },
+              ]}
+            >
+              <Text style={styles.buttonEmoji}>{v.emoji}</Text>
+              <Text style={styles.buttonLabel} numberOfLines={1} adjustsFontSizeToFit>
+                {v.label}
+              </Text>
+              {count > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{count}</Text>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={[styles.hand, styles.hint]}>Appui long sur un vice pour annuler.</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-
-      <View style={styles.header}>
-        {/* Remplacer par le dessin du vieux monsieur : <Image source={require('./assets/mascotte.png')} /> */}
-        <View style={styles.mascotte}>
-          <Text style={styles.mascotteEmoji}>🧓</Text>
+      <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
+        <View style={{ flex: wide ? 1 : undefined, gap: 20 }}>
+          {header}
+          {grid}
+          {stats}
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Êtes-vous un gros dégueulasse ?</Text>
-          <Text style={styles.verdict}>
-            {score7} vice{score7 > 1 ? 's' : ''} cette semaine. {verdict(score7)}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.vanne} numberOfLines={2}>
-        « {vanne} »
-      </Text>
-
-      <ScrollView style={styles.calendar} contentContainerStyle={styles.calendarContent}>
-        <View style={styles.row}>
-          <View style={styles.monthCol} />
-          {JOURS.map((j, i) => (
-            <Text key={i} style={[styles.dayLabel, { width: cell }]}>
-              {j}
-            </Text>
-          ))}
-        </View>
-        {weeks.map((week, w) => {
-          const firstOfMonth = week.find((d) => d.getDate() === 1);
-          return (
-            <View key={w} style={styles.row}>
-              <Text style={styles.monthCol}>{firstOfMonth ? MOIS[firstOfMonth.getMonth()] : ''}</Text>
-              {week.map((d) => {
-                const key = toKey(d);
-                const future = d > today && key !== todayKey;
-                return (
-                  <Pressable
-                    key={key}
-                    disabled={future}
-                    onPress={() => setSelected(key)}
-                    style={[
-                      styles.cell,
-                      {
-                        width: cell,
-                        height: cell,
-                        backgroundColor: future ? 'transparent' : dayColor(journal[key]),
-                      },
-                      key === selected && styles.cellSelected,
-                      key === todayKey && key !== selected && styles.cellToday,
-                    ]}
-                  />
-                );
-              })}
-            </View>
-          );
-        })}
+        {sidebar}
       </ScrollView>
-
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>
-          Qu'as-tu fait {selectedLabel}, misérable ?
-          <Text style={styles.hint}>  (appui long = annuler)</Text>
-        </Text>
-        <View style={styles.buttons}>
-          {VICES.map((v) => {
-            const count = selectedCounts?.[v.id] ?? 0;
-            return (
-              <Pressable
-                key={v.id}
-                onPress={() => bump(v.id, 1)}
-                onLongPress={() => count > 0 && bump(v.id, -1)}
-                style={({ pressed }) => [
-                  styles.button,
-                  { borderColor: `rgb(${v.color.join(',')})` },
-                  pressed && { transform: [{ scale: 0.94 }] },
-                ]}
-              >
-                <Text style={styles.buttonEmoji}>{v.emoji}</Text>
-                <Text style={styles.buttonLabel}>{v.label}</Text>
-                {count > 0 && (
-                  <View style={[styles.badge, { backgroundColor: `rgb(${v.color.join(',')})` }]}>
-                    <Text style={styles.badgeText}>{count}</Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
     </SafeAreaView>
   );
 }
 
-const INK = '#3B2A1A';
+const TITLE = 'Bangers_400Regular';
+const HAND = 'PatrickHand_400Regular';
+const POP_SHADOW = `3px 4px 0px ${INK}`;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F4ECD8' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8 },
-  mascotte: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#E2C99A',
+  screen: { flex: 1, backgroundColor: PAPER_BG },
+  page: { padding: 16, gap: 24 },
+  pageWide: { flexDirection: 'row', padding: 28, gap: 28, maxWidth: 1400, alignSelf: 'center', width: '100%' },
+
+  header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  mascotte: { width: 220, height: 208, resizeMode: 'contain' },
+  mascotteSmall: { width: 170, height: 161, resizeMode: 'contain', alignSelf: 'center' },
+  titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 4 },
+  highlight: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: YELLOW,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: 8,
+    transform: [{ rotate: '-1.2deg' }],
+  },
+  title: { fontFamily: TITLE, fontSize: 56, lineHeight: 58, color: INK, textTransform: 'uppercase', letterSpacing: 1 },
+  hand: { fontFamily: HAND, fontSize: 22, color: INK },
+  underlineRed: { textDecorationLine: 'underline', textDecorationColor: RED, textDecorationStyle: 'solid' },
+  vanne: { fontSize: 20, opacity: 0.85 },
+
+  box: {
+    backgroundColor: PAPER_BG,
     borderWidth: 3,
     borderColor: INK,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 16,
+    borderBottomLeftRadius: 10,
   },
-  mascotteEmoji: { fontSize: 36 },
-  title: { fontSize: 22, fontWeight: '900', color: INK, lineHeight: 25 },
-  verdict: { fontSize: 13, color: '#7A4B22', marginTop: 4, fontWeight: '600' },
-  vanne: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    fontStyle: 'italic',
-    color: INK,
-    fontSize: 14,
-    minHeight: 36,
-  },
-  calendar: { flex: 1 },
-  calendarContent: { alignItems: 'center', paddingVertical: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
-  monthCol: { width: 38, fontSize: 11, color: '#7A4B22', fontWeight: '700', textAlign: 'right', marginRight: 4 },
-  dayLabel: { textAlign: 'center', fontSize: 11, color: '#7A4B22', fontWeight: '700' },
-  cell: { borderRadius: 4 },
+  gridBox: { padding: 14, boxShadow: POP_SHADOW },
+  month: { position: 'absolute', fontFamily: TITLE, fontSize: 16, color: INK, letterSpacing: 0.5 },
+  dayLabel: { fontFamily: TITLE, fontSize: 14, color: INK, textAlign: 'center' },
+  cell: { borderRadius: 3 },
+  cellToday: { borderWidth: 2.5, borderColor: '#B8900A', backgroundColor: YELLOW },
   cellSelected: { borderWidth: 2.5, borderColor: INK },
-  cellToday: { borderWidth: 1.5, borderColor: '#7A4B22', borderStyle: 'dashed' },
-  panel: {
-    backgroundColor: '#EADBB8',
-    borderTopWidth: 3,
-    borderColor: INK,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  panelTitle: { fontSize: 14, fontWeight: '800', color: INK, marginBottom: 8, marginLeft: 4 },
-  hint: { fontSize: 11, fontWeight: '400', color: '#7A4B22' },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
-  button: {
-    width: '31.5%',
-    backgroundColor: '#FFF8E8',
+
+  stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', gap: 24 },
+  calendarIcon: {
+    width: 110,
+    height: 88,
     borderWidth: 3,
-    borderRadius: 14,
-    paddingVertical: 8,
+    borderColor: INK,
+    borderRadius: 6,
+    backgroundColor: '#FFF7E8',
+    overflow: 'hidden',
     alignItems: 'center',
+    transform: [{ rotate: '-4deg' }],
+    boxShadow: POP_SHADOW,
   },
-  buttonEmoji: { fontSize: 28 },
-  buttonLabel: { fontSize: 12, fontWeight: '700', color: INK, marginTop: 2 },
+  calendarTop: { alignSelf: 'stretch', height: 22, backgroundColor: RED, borderBottomWidth: 3, borderColor: INK },
+  calendarYear: { fontFamily: TITLE, fontSize: 38, color: INK, marginTop: 4 },
+  stat: { alignItems: 'center', gap: 6 },
+  statLabel: { fontFamily: TITLE, fontSize: 22, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
+  statValue: {
+    fontFamily: HAND,
+    fontSize: 36,
+    color: INK,
+    backgroundColor: YELLOW,
+    paddingHorizontal: 22,
+    borderTopLeftRadius: 16,
+    borderBottomRightRadius: 20,
+    borderTopRightRadius: 6,
+    borderBottomLeftRadius: 8,
+    overflow: 'hidden',
+  },
+
+  sidebar: { gap: 16 },
+  sidebarWide: { width: 300, borderLeftWidth: 3, borderColor: INK, paddingLeft: 28 },
+  sticker: {
+    backgroundColor: RED,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 8,
+    borderBottomLeftRadius: 18,
+    transform: [{ rotate: '-1.5deg' }],
+  },
+  stickerText: { fontFamily: TITLE, fontSize: 30, lineHeight: 32, color: INK, textAlign: 'center', textTransform: 'uppercase' },
+  buttons: { gap: 14 },
+  buttonsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    boxShadow: POP_SHADOW,
+  },
+  buttonHalf: { width: '47.5%', paddingHorizontal: 10, gap: 8 },
+  buttonEmoji: { fontSize: 36 },
+  buttonLabel: { flex: 1, fontFamily: TITLE, fontSize: 26, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -6,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+    top: -10,
+    right: -10,
+    minWidth: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: RED,
+    borderWidth: 3,
+    borderColor: INK,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#FFF8E8',
+    paddingHorizontal: 4,
   },
-  badgeText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  badgeText: { fontFamily: TITLE, fontSize: 18, color: INK },
+  hint: { fontSize: 17, textAlign: 'center', opacity: 0.7 },
 });
