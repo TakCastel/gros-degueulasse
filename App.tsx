@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import { Sketch, SketchLineV } from './components/Sketch';
 import { PaperToast, type Toast } from './components/PaperToast';
+import { CalendarBadge } from './components/CalendarBadge';
 import { ANNULATIONS, QUESTIONS, SOUS_TITRES, SURNOMS, VANNES, pick, verdictTextes } from './wording';
 
 // ---------- Les vices ----------
@@ -448,13 +449,7 @@ function Main() {
             </Text>
           ) : (
             <View style={styles.stats}>
-              <View style={styles.calendarIcon}>
-                <Sketch fill="#FFF7E8" shadow seed={9} />
-                <View style={styles.calendarTop}>
-                  <Sketch fill={RED} seed={10} strokeWidth={2.5} jitter={1.2} />
-                </View>
-                <Text style={styles.calendarYear}>{year}</Text>
-              </View>
+              <CalendarBadge year={year} font={TITLE} red={RED} />
               <View style={styles.stat}>
                 <Text style={styles.statLabel}>Série actuelle</Text>
                 <View style={styles.statValueWrap}>
@@ -573,9 +568,6 @@ const styles = StyleSheet.create({
   cellSelected: { borderWidth: 2.5, borderColor: INK },
 
   stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 24 },
-  calendarIcon: { width: 96, height: 78, alignItems: 'center', padding: 4, transform: [{ rotate: '-4deg' }] },
-  calendarTop: { alignSelf: 'stretch', height: 18 },
-  calendarYear: { fontFamily: TITLE, fontSize: 26, color: INK, marginTop: 4 },
   stat: { alignItems: 'center', gap: 4 },
   statLabel: { fontFamily: TITLE, fontSize: 17, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
   statValueWrap: { paddingHorizontal: 20, paddingVertical: 2 },

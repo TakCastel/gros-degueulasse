@@ -18,7 +18,7 @@ type Pt = [number, number];
 
 // Rectangle "dessiné au feutre" : des points le long des bords, décalés au hasard,
 // reliés par des courbes. Les coins s'arrondissent tout seuls.
-function wobblyRect(x: number, y: number, w: number, h: number, seed: number, jitter: number): string {
+export function wobblyRect(x: number, y: number, w: number, h: number, seed: number, jitter: number): string {
   const rand = rng(seed);
   const j = () => (rand() - 0.5) * 2 * jitter;
   const pts: Pt[] = [];
