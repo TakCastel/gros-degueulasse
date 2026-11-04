@@ -261,17 +261,28 @@ function Main() {
   const { current, best } = useMemo(() => streaks(journal, today), [journal, today]);
 
   // ----- Taille du calendrier, calculée sur la place réellement dispo -----
+  // L'année est découpée en 1 à 12 bandes empilées (1 = tout sur une ligne, 2 = semestres,
+  // 4 = trimestres...). On garde le découpage qui donne les plus grosses cases.
   const GAP = compact ? 2 : 3;
   const LABEL_W = compact ? 16 : 22;
   const HEAD_H = compact ? 16 : 22;
-  const fitW = (gridArea.w - LABEL_W - GAP * (weeks.length - 1)) / weeks.length;
-  const fitH = (gridArea.h - HEAD_H - GAP * 6) / 7;
-  const yearCell = Math.floor(Math.min(fitW, fitH, 24));
-  // Si l'année entière ne rentre pas en largeur, on passe en vertical (une ligne par semaine)
-  const horizontal = yearCell >= 8;
+  const BAND_GAP = compact ? 6 : 10;
+  const layout = useMemo(() => {
+    let best = { bands: 1, cols: weeks.length, cell: 0 };
+    for (let bands = 1; bands <= 12; bands++) {
+      const cols = Math.ceil(weeks.length / bands);
+      const fitW = (gridArea.w - 4 - LABEL_W - GAP * (cols - 1)) / cols;
+      const fitH = (gridArea.h - 6 - bands * (HEAD_H + GAP * 6) - (bands - 1) * BAND_GAP) / (7 * bands);
+      const c = Math.floor(Math.min(fitW, fitH, 44));
+      if (c > best.cell) best = { bands, cols, cell: c };
+    }
+    return best;
+  }, [weeks.length, gridArea.w, gridArea.h, LABEL_W, GAP, HEAD_H, BAND_GAP]);
+  // Écran vraiment minuscule : on repasse en colonne qui défile (une ligne par semaine)
+  const horizontal = layout.cell >= 9;
   const MONTH_W = compact ? 40 : 46;
   const vCell = Math.floor(clamp((gridArea.w - MONTH_W - GAP * 6) / 7, 8, 34));
-  const cell = horizontal ? yearCell : vCell;
+  const cell = horizontal ? layout.cell : vCell;
 
   useEffect(() => {
     if (horizontal || gridArea.h === 0) return;
@@ -320,37 +331,43 @@ function Main() {
     );
   };
 
-  const monthSize = compact ? 11 : 14;
+  const monthSize = Math.round(clamp(horizontal ? cell * 0.75 : compact ? 11 : 14, 10, 18));
+
+  const bandWeeks = Array.from({ length: layout.bands }, (_, b) => weeks.slice(b * layout.cols, (b + 1) * layout.cols));
 
   const yearGrid = (
-    <View>
-      <View style={{ height: HEAD_H, marginLeft: LABEL_W }}>
-        {weeks.map((w, i) => {
-          const first = w.find((d) => d.getDate() === 1 && d.getFullYear() === year);
-          if (!first) return null;
-          return (
-            <Text key={i} style={[styles.month, { left: i * (cell + GAP), fontSize: monthSize }]}>
-              {MOIS_COURTS[first.getMonth()]}
-            </Text>
-          );
-        })}
-      </View>
-      <View style={{ flexDirection: 'row' }}>
-        <View style={{ width: LABEL_W, gap: GAP }}>
-          {JOURS.map((j, i) => (
-            <Text key={i} style={[styles.dayLabel, { height: cell, lineHeight: cell, fontSize: monthSize - 2 }]}>
-              {j}
-            </Text>
-          ))}
-        </View>
-        <View style={{ flexDirection: 'row', gap: GAP }}>
-          {weeks.map((week, w) => (
-            <View key={w} style={{ gap: GAP }}>
-              {week.map(renderCell)}
+    <View style={{ gap: BAND_GAP, alignSelf: 'center' }}>
+      {bandWeeks.map((band, b) => (
+        <View key={b}>
+          <View style={{ height: HEAD_H, marginLeft: LABEL_W }}>
+            {band.map((w, i) => {
+              const first = w.find((d) => d.getDate() === 1 && d.getFullYear() === year);
+              if (!first) return null;
+              return (
+                <Text key={i} style={[styles.month, { left: i * (cell + GAP), fontSize: monthSize, bottom: 3 }]}>
+                  {MOIS_COURTS[first.getMonth()]}
+                </Text>
+              );
+            })}
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: LABEL_W, gap: GAP }}>
+              {JOURS.map((j, i) => (
+                <Text key={i} style={[styles.dayLabel, { height: cell, lineHeight: cell, fontSize: monthSize - 2 }]}>
+                  {j}
+                </Text>
+              ))}
             </View>
-          ))}
+            <View style={{ flexDirection: 'row', gap: GAP }}>
+              {band.map((week, w) => (
+                <View key={w} style={{ gap: GAP }}>
+                  {week.map(renderCell)}
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
-      </View>
+      ))}
     </View>
   );
 
