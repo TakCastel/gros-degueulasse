@@ -548,7 +548,7 @@ function Main() {
           </Text>
         </View>
       </View>
-      <PaperToast toast={toast} font={HAND} maxWidth={Math.min(460, width - 40)} top={compact ? 70 : height * 0.3} />
+      <PaperToast toast={toast} font={HAND} maxWidth={Math.min(460, width - 40)} top={compact ? 8 : 12} />
       {/* Grain de papier imprimé par-dessus tout : ronge un peu l'encre des textes et des traits */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Image source={require('./assets/grain.png')} resizeMode="repeat" style={{ width: '100%', height: '100%' }} />
