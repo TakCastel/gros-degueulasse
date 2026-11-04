@@ -19,9 +19,11 @@ export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null
     setCurrent(toast);
     anim.setValue(0);
     const run = Animated.sequence([
-      Animated.spring(anim, { toValue: 1, friction: 5, tension: 60, useNativeDriver: NATIVE }),
-      Animated.delay(2300),
-      Animated.timing(anim, { toValue: 2, duration: 420, easing: Easing.in(Easing.quad), useNativeDriver: NATIVE }),
+      // Plaqué sur l'écran : arrive de plus haut (plus gros), se pose avec un petit rebond
+      Animated.timing(anim, { toValue: 1, duration: 320, easing: Easing.out(Easing.back(1.8)), useNativeDriver: NATIVE }),
+      Animated.delay(2200),
+      // Le scotch lâche : il glisse, pivote et tombe
+      Animated.timing(anim, { toValue: 2, duration: 650, easing: Easing.in(Easing.cubic), useNativeDriver: NATIVE }),
     ]);
     run.start(({ finished }) => finished && setCurrent(null));
     return () => run.stop();
@@ -32,11 +34,12 @@ export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null
   // Chaque papier a sa propre inclinaison
   const tilt = ((current.id * 37) % 7) - 3;
   const style = {
-    opacity: anim.interpolate({ inputRange: [0, 0.25, 1.6, 2], outputRange: [0, 1, 1, 0], extrapolate: 'clamp' }),
+    opacity: anim.interpolate({ inputRange: [0, 0.15, 1.7, 2], outputRange: [0, 1, 1, 0], extrapolate: 'clamp' }),
     transform: [
-      { translateY: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [-160, 0, -40] }) },
-      { translateX: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 0, tilt >= 0 ? 160 : -160] }) },
-      { rotate: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [`${tilt - 16}deg`, `${tilt}deg`, `${tilt * 4 + 18}deg`] }) },
+      { translateY: anim.interpolate({ inputRange: [0, 1, 1.15, 2], outputRange: [-24, 0, -6, 260] }) },
+      { translateX: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 0, tilt >= 0 ? 50 : -50] }) },
+      { rotate: anim.interpolate({ inputRange: [0, 1, 1.15, 2], outputRange: [`${tilt - 9}deg`, `${tilt}deg`, `${tilt - 2}deg`, `${tilt >= 0 ? tilt + 28 : tilt - 28}deg`] }) },
+      { scale: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [1.35, 1, 0.92] }) },
     ],
   };
 

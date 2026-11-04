@@ -14,8 +14,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
-import { Bangers_400Regular } from '@expo-google-fonts/bangers';
-import { PatrickHand_400Regular } from '@expo-google-fonts/patrick-hand';
+import { LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy';
+import { Kalam_700Bold } from '@expo-google-fonts/kalam';
 import { Sketch, SketchLineV } from './components/Sketch';
 import { PaperToast, type Toast } from './components/PaperToast';
 
@@ -201,7 +201,7 @@ const jours = (n: number) => `${n} jour${n > 1 ? 's' : ''}`;
 // ---------- App ----------
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({ Bangers_400Regular, PatrickHand_400Regular });
+  const [fontsLoaded, fontError] = useFonts({ LuckiestGuy_400Regular, Kalam_700Bold });
   if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: PAPER_BG }} />;
   return (
     <SafeAreaProvider>
@@ -296,6 +296,14 @@ function Main() {
   const vCell = Math.floor(clamp((gridArea.w - MONTH_W - GAP * 6) / 7, 8, 34));
   const cell = horizontal ? yearCell : vCell;
 
+  useEffect(() => {
+    if (horizontal || gridArea.h === 0) return;
+    const t = setTimeout(() => {
+      gridScroll.current?.scrollTo({ y: Math.max(0, todayWeek * (cell + GAP) - gridArea.h / 2), animated: false });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [horizontal, gridArea.h, cell, GAP, todayWeek]);
+
   const selectedDate = new Date(selected + 'T12:00:00');
   const selectedLabel =
     selected === todayKey ? "aujourd'hui" : `le ${selectedDate.getDate()} ${MOIS[selectedDate.getMonth()]}`;
@@ -303,7 +311,7 @@ function Main() {
 
   const sidebarW = compact ? clamp(width * 0.36, 118, 180) : clamp(width * 0.24, 230, 320);
   const leftW = width - sidebarW - (compact ? 24 : 72);
-  const titleSize = compact ? clamp(leftW / 11, 18, 26) : clamp(leftW / 17, 30, 54);
+  const titleSize = compact ? clamp(leftW / 13, 16, 22) : clamp(leftW / 21, 26, 46);
   const mascotH = compact ? clamp(height * 0.1, 56, 84) : clamp(height * 0.2, 110, 190);
 
   const renderCell = (d: Date) => {
@@ -331,7 +339,7 @@ function Main() {
     );
   };
 
-  const monthSize = compact ? 12 : 16;
+  const monthSize = compact ? 11 : 14;
 
   const yearGrid = (
     <View>
@@ -475,7 +483,10 @@ function Main() {
                 </View>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statLabel}>🏆 Meilleure série</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Image source={require('./assets/trophee.png')} style={{ width: 30, height: 26 }} resizeMode="contain" />
+                  <Text style={styles.statLabel}>Meilleure série</Text>
+                </View>
                 <View style={styles.statValueWrap}>
                   <Sketch fill={YELLOW} stroke={null} jitter={3.5} seed={37} />
                   <Text style={styles.statValue}>{jours(best)}</Text>
@@ -491,7 +502,7 @@ function Main() {
           <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
             <Sketch fill={RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
             <Text
-              style={[styles.stickerText, compact && { fontSize: 15, lineHeight: 17 }]}
+              style={[styles.stickerText, compact && { fontSize: 13, lineHeight: 16 }]}
               numberOfLines={3}
               adjustsFontSizeToFit
             >
@@ -546,8 +557,8 @@ function Main() {
   );
 }
 
-const TITLE = 'Bangers_400Regular';
-const HAND = 'PatrickHand_400Regular';
+const TITLE = 'LuckiestGuy_400Regular';
+const HAND = 'Kalam_700Bold';
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PAPER_BG },
@@ -565,9 +576,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, transform: [{ rotate: '-1deg' }] },
   title: { fontFamily: TITLE, color: INK, textTransform: 'uppercase', letterSpacing: 1 },
-  hand: { fontFamily: HAND, fontSize: 21, color: INK },
+  hand: { fontFamily: HAND, fontSize: 18, color: INK },
   underlineRed: { textDecorationLine: 'underline', textDecorationColor: RED, textDecorationStyle: 'solid' },
-  vanne: { fontSize: 19, opacity: 0.85 },
+  vanne: { fontSize: 17, opacity: 0.85 },
 
   gridBox: { flex: 1, padding: 16 },
   month: { position: 'absolute', fontFamily: TITLE, color: INK, letterSpacing: 0.5 },
@@ -580,16 +591,16 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 24 },
   calendarIcon: { width: 96, height: 78, alignItems: 'center', padding: 4, transform: [{ rotate: '-4deg' }] },
   calendarTop: { alignSelf: 'stretch', height: 18 },
-  calendarYear: { fontFamily: TITLE, fontSize: 32, color: INK, marginTop: 4 },
+  calendarYear: { fontFamily: TITLE, fontSize: 26, color: INK, marginTop: 4 },
   stat: { alignItems: 'center', gap: 4 },
-  statLabel: { fontFamily: TITLE, fontSize: 20, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
+  statLabel: { fontFamily: TITLE, fontSize: 17, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
   statValueWrap: { paddingHorizontal: 20, paddingVertical: 2 },
-  statValue: { fontFamily: HAND, fontSize: 32, color: INK },
+  statValue: { fontFamily: HAND, fontSize: 26, color: INK },
 
   sidebar: { gap: 12, paddingLeft: 18 },
   sidebarCompact: { gap: 7, paddingLeft: 4 },
   sticker: { paddingVertical: 14, paddingHorizontal: 16, transform: [{ rotate: '-1.5deg' }] },
-  stickerText: { fontFamily: TITLE, fontSize: 28, lineHeight: 30, color: INK, textAlign: 'center', textTransform: 'uppercase' },
+  stickerText: { fontFamily: TITLE, fontSize: 22, lineHeight: 27, color: INK, textAlign: 'center', textTransform: 'uppercase' },
   button: {
     flex: 1,
     maxHeight: 90,
@@ -608,8 +619,8 @@ const styles = StyleSheet.create({
   icon: { width: 52, height: 46 },
   iconCompact: { width: 46, height: 40 },
   mark: { backgroundColor: YELLOW },
-  buttonLabel: { fontFamily: TITLE, fontSize: 25, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
-  buttonLabelCompact: { fontSize: 14, letterSpacing: 0, textAlign: 'center' },
+  buttonLabel: { fontFamily: TITLE, fontSize: 20, lineHeight: 30, paddingTop: 4, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
+  buttonLabelCompact: { fontSize: 12, lineHeight: 19, paddingTop: 3, letterSpacing: 0, textAlign: 'center' },
   badge: {
     position: 'absolute',
     top: -10,
@@ -625,6 +636,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeCompact: { top: -6, right: -4, minWidth: 22, height: 22, borderRadius: 11, borderWidth: 2 },
-  badgeText: { fontFamily: TITLE, fontSize: 17, color: INK },
+  badgeText: { fontFamily: TITLE, fontSize: 15, color: INK },
   hint: { fontSize: 15, textAlign: 'center', opacity: 0.7 },
 });

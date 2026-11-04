@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "@expo-google-fonts/bangers": "^0.4.1",
-    "@expo-google-fonts/patrick-hand": "^0.4.1",
+    "@expo-google-fonts/kalam": "^0.4.1",
+    "@expo-google-fonts/luckiest-guy": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.23",
     "expo-font": "~58.0.11",
