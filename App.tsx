@@ -266,7 +266,7 @@ function Main() {
   const yearCell = Math.floor(Math.min(fitW, fitH, 24));
   // Si l'année entière ne rentre pas en largeur, on passe en vertical (une ligne par semaine)
   const horizontal = yearCell >= 8;
-  const MONTH_W = compact ? 30 : 40;
+  const MONTH_W = compact ? 40 : 46;
   const vCell = Math.floor(clamp((gridArea.w - MONTH_W - GAP * 6) / 7, 8, 34));
   const cell = horizontal ? yearCell : vCell;
 
@@ -375,7 +375,7 @@ function Main() {
           const first = week.find((d) => d.getDate() === 1 && d.getFullYear() === year);
           return (
             <View key={w} style={{ flexDirection: 'row', gap: GAP, marginBottom: GAP, alignItems: 'center' }}>
-              <Text style={[styles.month, styles.monthSide, { width: MONTH_W - GAP, fontSize: monthSize }]}>
+              <Text numberOfLines={1} style={[styles.month, styles.monthSide, { width: MONTH_W - GAP, fontSize: monthSize }]}>
                 {first ? MOIS_COURTS[first.getMonth()] : ''}
               </Text>
               {week.map(renderCell)}
@@ -477,13 +477,13 @@ function Main() {
         {/* ----- Droite : les vices ----- */}
         <SketchLineV width={compact ? 2 : 3} />
         <View style={[styles.sidebar, { width: sidebarW }, compact && styles.sidebarCompact]}>
-          <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
+          <View style={[styles.sticker, compact && { paddingVertical: 10, paddingHorizontal: 6 }]}>
             <Sketch fill={STICKER_RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
             <Text
               style={[
                 styles.stickerText,
                 longQuestion && { fontSize: 18, lineHeight: 26 },
-                compact && { fontSize: longQuestion ? 11 : 13, lineHeight: longQuestion ? 17 : 19, letterSpacing: 0 },
+                compact && { fontSize: longQuestion ? 14 : 16, lineHeight: longQuestion ? 20 : 22, letterSpacing: 0 },
               ]}
               numberOfLines={5}
               adjustsFontSizeToFit
