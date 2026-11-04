@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -207,15 +208,29 @@ export default function App() {
   );
 }
 
+// Icônes dessinées, découpées de la maquette
+const ICONS: Record<ViceId, ImageSourcePropType> = {
+  biere: require('./assets/vices/biere.png'),
+  vin: require('./assets/vices/vin.png'),
+  cocktail: require('./assets/vices/cocktail.png'),
+  clope: require('./assets/vices/clope.png'),
+  bouffe: require('./assets/vices/bouffe.png'),
+  paris: require('./assets/vices/paris.png'),
+};
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
 function Main() {
-  const { width } = useWindowDimensions();
-  const wide = width >= 900;
+  const { width, height } = useWindowDimensions();
+  // Téléphone : tout est réduit, mais on garde calendrier à gauche et boutons à droite
+  const compact = width < 700 || height < 520;
   const [journal, setJournal] = useState<Journal>({});
   const [loaded, setLoaded] = useState(false);
   const today = useMemo(() => new Date(), []);
   const todayKey = toKey(today);
   const [selected, setSelected] = useState(todayKey);
   const [vanne, setVanne] = useState('Clique sur un vice, on ne juge pas. Si, un peu.');
+  const [gridArea, setGridArea] = useState({ w: 0, h: 0 });
   const gridScroll = useRef<ScrollViewInstance>(null);
 
   useEffect(() => {
@@ -244,7 +259,7 @@ function Main() {
     setVanne(delta > 0 ? v.vannes[Math.floor(Math.random() * v.vannes.length)] : 'Rétropédalage. On a tous vu.');
   };
 
-  // Année en cours : une colonne par semaine, une ligne par jour
+  // Année en cours, découpée en semaines (lundi → dimanche)
   const year = today.getFullYear();
   const weeks = useMemo(() => {
     const jan1 = new Date(year, 0, 1, 12);
@@ -255,6 +270,7 @@ function Main() {
     }
     return out;
   }, [year]);
+  const todayWeek = weeks.findIndex((w) => w.some((d) => toKey(d) === todayKey));
 
   const score7 = useMemo(() => {
     let s = 0;
@@ -264,174 +280,247 @@ function Main() {
 
   const { current, best } = useMemo(() => streaks(journal, today), [journal, today]);
 
-  // Taille des cases : on remplit la largeur dispo, sinon on scrolle
-  const GAP = 3;
-  const sidebarW = wide ? 300 : 0;
-  const gridAvail = width - sidebarW - (wide ? 72 : 32) - 28 - 24;
-  const fitted = Math.floor((gridAvail - GAP * (weeks.length - 1)) / weeks.length);
-  const cell = Math.max(13, Math.min(20, fitted));
-  const scrolls = fitted < 13;
-  const todayCol = weeks.findIndex((w) => w.some((d) => toKey(d) === todayKey));
+  // ----- Taille du calendrier, calculée sur la place réellement dispo -----
+  const GAP = compact ? 2 : 3;
+  const LABEL_W = compact ? 16 : 22;
+  const HEAD_H = compact ? 16 : 22;
+  const fitW = (gridArea.w - LABEL_W - GAP * (weeks.length - 1)) / weeks.length;
+  const fitH = (gridArea.h - HEAD_H - GAP * 6) / 7;
+  const yearCell = Math.floor(Math.min(fitW, fitH, 24));
+  // Si l'année entière ne rentre pas en largeur, on passe en vertical (une ligne par semaine)
+  const horizontal = yearCell >= 8;
+  const MONTH_W = compact ? 30 : 40;
+  const vCell = Math.floor(clamp((gridArea.w - MONTH_W - GAP * 6) / 7, 8, 34));
+  const cell = horizontal ? yearCell : vCell;
 
   const selectedDate = new Date(selected + 'T12:00:00');
   const selectedLabel =
     selected === todayKey ? "aujourd'hui" : `le ${selectedDate.getDate()} ${MOIS[selectedDate.getMonth()]}`;
   const selectedCounts = journal[selected];
 
-  const header = (
-    <View style={[styles.header, !wide && { flexDirection: 'column', alignItems: 'stretch' }]}>
-      <Image source={require('./assets/mascotte.png')} style={wide ? styles.mascotte : styles.mascotteSmall} />
-      <View style={{ flex: wide ? 1 : undefined, gap: 10 }}>
-        <View style={styles.titleWrap}>
-          <View style={styles.highlight} />
-          <Text style={[styles.title, !wide && { fontSize: 38, lineHeight: 40 }]}>
-            Êtes-vous un gros dégueulasse ?
-          </Text>
-        </View>
-        <Text style={styles.hand}>
-          <Text style={styles.underlineRed}>
-            {score7} vice{score7 > 1 ? 's' : ''}
-          </Text>{' '}
-          cette semaine. {verdict(score7)}
-        </Text>
-        <Text style={[styles.hand, styles.vanne]} numberOfLines={2}>
-          « {vanne} »
-        </Text>
-      </View>
-    </View>
-  );
+  const sidebarW = compact ? clamp(width * 0.36, 118, 180) : clamp(width * 0.24, 230, 320);
+  const leftW = width - sidebarW - (compact ? 24 : 72);
+  const titleSize = compact ? clamp(leftW / 11, 18, 26) : clamp(leftW / 17, 30, 54);
+  const mascotH = compact ? clamp(height * 0.1, 56, 84) : clamp(height * 0.2, 110, 190);
 
-  const grid = (
-    <View style={[styles.box, styles.gridBox]}>
-      <ScrollView
-        ref={gridScroll}
-        horizontal
-        scrollEnabled={scrolls}
-        showsHorizontalScrollIndicator={false}
-        onContentSizeChange={() => {
-          if (scrolls) gridScroll.current?.scrollTo({ x: Math.max(0, (todayCol - 8) * (cell + GAP)), animated: false });
-        }}
-      >
-        <View>
-          <View style={{ height: 22, marginLeft: 24 }}>
-            {weeks.map((w, i) => {
-              const first = w.find((d) => d.getDate() === 1 && d.getFullYear() === year);
-              if (!first) return null;
-              return (
-                <Text key={i} style={[styles.month, { left: i * (cell + GAP) }]}>
-                  {MOIS_COURTS[first.getMonth()]}
-                </Text>
-              );
-            })}
-          </View>
-          <View style={{ flexDirection: 'row' }}>
-            <View style={{ width: 24, gap: GAP }}>
-              {JOURS.map((j, i) => (
-                <Text key={i} style={[styles.dayLabel, { height: cell, lineHeight: cell }]}>
-                  {j}
-                </Text>
-              ))}
-            </View>
-            <View style={{ flexDirection: 'row', gap: GAP }}>
-              {weeks.map((week, w) => (
-                <View key={w} style={{ gap: GAP }}>
-                  {week.map((d) => {
-                    const key = toKey(d);
-                    const outside = d.getFullYear() !== year;
-                    const future = d > today && key !== todayKey;
-                    return (
-                      <Pressable
-                        key={key}
-                        disabled={outside || future}
-                        onPress={() => setSelected(key)}
-                        style={[
-                          styles.cell,
-                          {
-                            width: cell,
-                            height: cell,
-                            backgroundColor: outside ? 'transparent' : dayColor(journal[key]),
-                            opacity: future ? 0.45 : 1,
-                          },
-                          key === todayKey && styles.cellToday,
-                          key === selected && styles.cellSelected,
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
+  const renderCell = (d: Date) => {
+    const key = toKey(d);
+    const outside = d.getFullYear() !== year;
+    const future = d > today && key !== todayKey;
+    return (
+      <Pressable
+        key={key}
+        disabled={outside || future}
+        onPress={() => setSelected(key)}
+        style={[
+          styles.cell,
+          {
+            width: cell,
+            height: cell,
+            backgroundColor: outside ? 'transparent' : dayColor(journal[key]),
+            opacity: future ? 0.45 : 1,
+          },
+          key === todayKey && styles.cellToday,
+          key === selected && styles.cellSelected,
+          cell < 12 && { borderWidth: key === selected || key === todayKey ? 1.5 : 0 },
+        ]}
+      />
+    );
+  };
 
-  const stats = (
-    <View style={[styles.stats, !wide && { gap: 12 }]}>
-      <View style={styles.calendarIcon}>
-        <View style={styles.calendarTop} />
-        <Text style={styles.calendarYear}>{year}</Text>
-      </View>
-      <View style={styles.stat}>
-        <Text style={styles.statLabel}>Série actuelle</Text>
-        <Text style={styles.statValue}>{jours(current)}</Text>
-      </View>
-      <View style={styles.stat}>
-        <Text style={styles.statLabel}>🏆 Meilleure série</Text>
-        <Text style={styles.statValue}>{jours(best)}</Text>
-      </View>
-    </View>
-  );
+  const monthSize = compact ? 12 : 16;
 
-  const sidebar = (
-    <View style={[styles.sidebar, wide ? styles.sidebarWide : null]}>
-      <View style={styles.sticker}>
-        <Text style={styles.stickerText}>Qu'as-tu fait {selectedLabel}, misérable ?</Text>
-      </View>
-      <View style={[styles.buttons, !wide && styles.buttonsGrid]}>
-        {VICES.map((v, i) => {
-          const count = selectedCounts?.[v.id] ?? 0;
+  const yearGrid = (
+    <View>
+      <View style={{ height: HEAD_H, marginLeft: LABEL_W }}>
+        {weeks.map((w, i) => {
+          const first = w.find((d) => d.getDate() === 1 && d.getFullYear() === year);
+          if (!first) return null;
           return (
-            <Pressable
-              key={v.id}
-              onPress={() => bump(v.id, 1)}
-              onLongPress={() => count > 0 && bump(v.id, -1)}
-              style={({ pressed }) => [
-                styles.box,
-                styles.button,
-                !wide && styles.buttonHalf,
-                { transform: [{ rotate: i % 2 ? '0.6deg' : '-0.5deg' }, { scale: pressed ? 0.95 : 1 }] },
-              ]}
-            >
-              <Text style={styles.buttonEmoji}>{v.emoji}</Text>
-              <Text style={styles.buttonLabel} numberOfLines={1} adjustsFontSizeToFit>
-                {v.label}
-              </Text>
-              {count > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{count}</Text>
-                </View>
-              )}
-            </Pressable>
+            <Text key={i} style={[styles.month, { left: i * (cell + GAP), fontSize: monthSize }]}>
+              {MOIS_COURTS[first.getMonth()]}
+            </Text>
           );
         })}
       </View>
-      <Text style={[styles.hand, styles.hint]}>Appui long sur un vice pour annuler.</Text>
+      <View style={{ flexDirection: 'row' }}>
+        <View style={{ width: LABEL_W, gap: GAP }}>
+          {JOURS.map((j, i) => (
+            <Text key={i} style={[styles.dayLabel, { height: cell, lineHeight: cell, fontSize: monthSize - 2 }]}>
+              {j}
+            </Text>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', gap: GAP }}>
+          {weeks.map((week, w) => (
+            <View key={w} style={{ gap: GAP }}>
+              {week.map(renderCell)}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  const weekGrid = (
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', gap: GAP, marginLeft: MONTH_W, marginBottom: 4 }}>
+        {JOURS.map((j, i) => (
+          <Text key={i} style={[styles.dayLabel, { width: cell, fontSize: monthSize - 1 }]}>
+            {j}
+          </Text>
+        ))}
+      </View>
+      <ScrollView
+        ref={gridScroll}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() =>
+          gridScroll.current?.scrollTo({
+            y: Math.max(0, todayWeek * (cell + GAP) - gridArea.h / 2),
+            animated: false,
+          })
+        }
+      >
+        {weeks.map((week, w) => {
+          const first = week.find((d) => d.getDate() === 1 && d.getFullYear() === year);
+          return (
+            <View key={w} style={{ flexDirection: 'row', gap: GAP, marginBottom: GAP, alignItems: 'center' }}>
+              <Text style={[styles.month, styles.monthSide, { width: MONTH_W - GAP, fontSize: monthSize }]}>
+                {first ? MOIS_COURTS[first.getMonth()] : ''}
+              </Text>
+              {week.map(renderCell)}
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
-        <View style={{ flex: wide ? 1 : undefined, gap: 20 }}>
-          {header}
-          {grid}
-          {stats}
+      <View style={[styles.page, compact && styles.pageCompact]}>
+        {/* ----- Gauche : titre, calendrier, séries ----- */}
+        <View style={{ flex: 1, gap: compact ? 10 : 18 }}>
+          <View style={[styles.header, compact && { gap: 8 }]}>
+            {!compact && (
+              <Image
+                source={require('./assets/mascotte.png')}
+                style={{ width: mascotH * 1.06, height: mascotH, resizeMode: 'contain' }}
+              />
+            )}
+            <View style={{ flex: 1, gap: compact ? 4 : 8 }}>
+              <View style={styles.titleWrap}>
+                <View style={styles.highlight} />
+                <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.05 }]}>
+                  Êtes-vous un gros dégueulasse ?
+                </Text>
+              </View>
+              <Text style={[styles.hand, compact && { fontSize: 14 }]} numberOfLines={2}>
+                <Text style={styles.underlineRed}>
+                  {score7} vice{score7 > 1 ? 's' : ''}
+                </Text>{' '}
+                cette semaine. {verdict(score7)}
+              </Text>
+              {!compact && (
+                <Text style={[styles.hand, styles.vanne]} numberOfLines={1}>
+                  « {vanne} »
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {compact && (
+            <Text style={[styles.hand, styles.vanne, { fontSize: 14 }]} numberOfLines={2}>
+              « {vanne} »
+            </Text>
+          )}
+
+          <View style={[styles.box, styles.gridBox, compact && { padding: 8 }]}>
+            <View
+              style={{ flex: 1, justifyContent: 'center' }}
+              onLayout={(e) => {
+                const { width: w, height: h } = e.nativeEvent.layout;
+                if (Math.abs(w - gridArea.w) > 1 || Math.abs(h - gridArea.h) > 1) setGridArea({ w, h });
+              }}
+            >
+              {gridArea.w > 0 && (horizontal ? yearGrid : weekGrid)}
+            </View>
+          </View>
+
+          {compact ? (
+            <Text style={[styles.hand, { fontSize: 14 }]} numberOfLines={1}>
+              Série : <Text style={styles.mark}> {jours(current)} </Text>  ·  Record :{' '}
+              <Text style={styles.mark}> {jours(best)} </Text>
+            </Text>
+          ) : (
+            <View style={styles.stats}>
+              <View style={styles.calendarIcon}>
+                <View style={styles.calendarTop} />
+                <Text style={styles.calendarYear}>{year}</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>Série actuelle</Text>
+                <Text style={styles.statValue}>{jours(current)}</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>🏆 Meilleure série</Text>
+                <Text style={styles.statValue}>{jours(best)}</Text>
+              </View>
+            </View>
+          )}
         </View>
-        {sidebar}
-      </ScrollView>
+
+        {/* ----- Droite : les vices ----- */}
+        <View style={[styles.sidebar, { width: sidebarW }, compact && styles.sidebarCompact]}>
+          <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
+            <Text
+              style={[styles.stickerText, compact && { fontSize: 15, lineHeight: 17 }]}
+              numberOfLines={3}
+              adjustsFontSizeToFit
+            >
+              Qu'as-tu fait {selectedLabel}, misérable ?
+            </Text>
+          </View>
+          {VICES.map((v, i) => {
+            const count = selectedCounts?.[v.id] ?? 0;
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => bump(v.id, 1)}
+                onLongPress={() => count > 0 && bump(v.id, -1)}
+                style={({ pressed }) => [
+                  styles.box,
+                  styles.button,
+                  compact && styles.buttonCompact,
+                  { transform: [{ rotate: i % 2 ? '0.6deg' : '-0.5deg' }, { scale: pressed ? 0.95 : 1 }] },
+                ]}
+              >
+                <Image
+                  source={ICONS[v.id]}
+                  style={[styles.icon, compact && styles.iconCompact]}
+                  resizeMode="contain"
+                />
+                <Text
+                  style={[styles.buttonLabel, compact ? styles.buttonLabelCompact : { flex: 1 }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {v.label}
+                </Text>
+                {count > 0 && (
+                  <View style={[styles.badge, compact && styles.badgeCompact]}>
+                    <Text style={[styles.badgeText, compact && { fontSize: 13 }]}>{count}</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+          <Text style={[styles.hand, styles.hint, compact && { fontSize: 11 }]}>
+            Appui long = annuler
+          </Text>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -442,13 +531,19 @@ const POP_SHADOW = `3px 4px 0px ${INK}`;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PAPER_BG },
-  page: { padding: 16, gap: 24 },
-  pageWide: { flexDirection: 'row', padding: 28, gap: 28, maxWidth: 1400, alignSelf: 'center', width: '100%' },
+  page: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 24,
+    gap: 24,
+    maxWidth: 1500,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  pageCompact: { padding: 8, gap: 8 },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  mascotte: { width: 220, height: 208, resizeMode: 'contain' },
-  mascotteSmall: { width: 170, height: 161, resizeMode: 'contain', alignSelf: 'center' },
-  titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 4 },
+  titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3 },
   highlight: {
     ...StyleSheet.absoluteFill,
     backgroundColor: YELLOW,
@@ -458,10 +553,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 8,
     transform: [{ rotate: '-1.2deg' }],
   },
-  title: { fontFamily: TITLE, fontSize: 56, lineHeight: 58, color: INK, textTransform: 'uppercase', letterSpacing: 1 },
-  hand: { fontFamily: HAND, fontSize: 22, color: INK },
+  title: { fontFamily: TITLE, color: INK, textTransform: 'uppercase', letterSpacing: 1 },
+  hand: { fontFamily: HAND, fontSize: 21, color: INK },
   underlineRed: { textDecorationLine: 'underline', textDecorationColor: RED, textDecorationStyle: 'solid' },
-  vanne: { fontSize: 20, opacity: 0.85 },
+  vanne: { fontSize: 19, opacity: 0.85 },
 
   box: {
     backgroundColor: PAPER_BG,
@@ -472,17 +567,18 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
     borderBottomLeftRadius: 10,
   },
-  gridBox: { padding: 14, boxShadow: POP_SHADOW },
-  month: { position: 'absolute', fontFamily: TITLE, fontSize: 16, color: INK, letterSpacing: 0.5 },
-  dayLabel: { fontFamily: TITLE, fontSize: 14, color: INK, textAlign: 'center' },
+  gridBox: { flex: 1, padding: 14, boxShadow: POP_SHADOW },
+  month: { position: 'absolute', fontFamily: TITLE, color: INK, letterSpacing: 0.5 },
+  monthSide: { position: 'relative', textAlign: 'right', paddingRight: 4 },
+  dayLabel: { fontFamily: TITLE, color: INK, textAlign: 'center' },
   cell: { borderRadius: 3 },
   cellToday: { borderWidth: 2.5, borderColor: '#B8900A', backgroundColor: YELLOW },
   cellSelected: { borderWidth: 2.5, borderColor: INK },
 
-  stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', gap: 24 },
+  stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 24 },
   calendarIcon: {
-    width: 110,
-    height: 88,
+    width: 96,
+    height: 76,
     borderWidth: 3,
     borderColor: INK,
     borderRadius: 6,
@@ -492,16 +588,16 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-4deg' }],
     boxShadow: POP_SHADOW,
   },
-  calendarTop: { alignSelf: 'stretch', height: 22, backgroundColor: RED, borderBottomWidth: 3, borderColor: INK },
-  calendarYear: { fontFamily: TITLE, fontSize: 38, color: INK, marginTop: 4 },
-  stat: { alignItems: 'center', gap: 6 },
-  statLabel: { fontFamily: TITLE, fontSize: 22, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
+  calendarTop: { alignSelf: 'stretch', height: 18, backgroundColor: RED, borderBottomWidth: 3, borderColor: INK },
+  calendarYear: { fontFamily: TITLE, fontSize: 32, color: INK, marginTop: 4 },
+  stat: { alignItems: 'center', gap: 4 },
+  statLabel: { fontFamily: TITLE, fontSize: 20, color: INK, letterSpacing: 0.5, textTransform: 'uppercase' },
   statValue: {
     fontFamily: HAND,
-    fontSize: 36,
+    fontSize: 32,
     color: INK,
     backgroundColor: YELLOW,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     borderTopLeftRadius: 16,
     borderBottomRightRadius: 20,
     borderTopRightRadius: 6,
@@ -509,32 +605,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  sidebar: { gap: 16 },
-  sidebarWide: { width: 300, borderLeftWidth: 3, borderColor: INK, paddingLeft: 28 },
+  sidebar: { gap: 12, borderLeftWidth: 3, borderColor: INK, paddingLeft: 24 },
+  sidebarCompact: { gap: 7, borderLeftWidth: 2, paddingLeft: 8 },
   sticker: {
     backgroundColor: RED,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderTopLeftRadius: 10,
     borderTopRightRadius: 22,
     borderBottomRightRadius: 8,
     borderBottomLeftRadius: 18,
     transform: [{ rotate: '-1.5deg' }],
   },
-  stickerText: { fontFamily: TITLE, fontSize: 30, lineHeight: 32, color: INK, textAlign: 'center', textTransform: 'uppercase' },
-  buttons: { gap: 14 },
-  buttonsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  stickerText: { fontFamily: TITLE, fontSize: 28, lineHeight: 30, color: INK, textAlign: 'center', textTransform: 'uppercase' },
   button: {
+    flex: 1,
+    maxHeight: 90,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    paddingVertical: 10,
     paddingHorizontal: 16,
     boxShadow: POP_SHADOW,
   },
-  buttonHalf: { width: '47.5%', paddingHorizontal: 10, gap: 8 },
-  buttonEmoji: { fontSize: 36 },
-  buttonLabel: { flex: 1, fontFamily: TITLE, fontSize: 26, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
+  buttonCompact: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 0,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    boxShadow: `2px 3px 0px ${INK}`,
+  },
+  icon: { width: 52, height: 46 },
+  iconCompact: { width: 46, height: 40 },
+  mark: { backgroundColor: YELLOW },
+  buttonLabel: { fontFamily: TITLE, fontSize: 25, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
+  buttonLabelCompact: { fontSize: 14, letterSpacing: 0, textAlign: 'center' },
   badge: {
     position: 'absolute',
     top: -10,
@@ -549,6 +654,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { fontFamily: TITLE, fontSize: 18, color: INK },
-  hint: { fontSize: 17, textAlign: 'center', opacity: 0.7 },
+  badgeCompact: { top: -6, right: -4, minWidth: 22, height: 22, borderRadius: 11, borderWidth: 2 },
+  badgeText: { fontFamily: TITLE, fontSize: 17, color: INK },
+  hint: { fontSize: 15, textAlign: 'center', opacity: 0.7 },
 });
