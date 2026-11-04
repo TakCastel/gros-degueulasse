@@ -103,6 +103,8 @@ const PAPER_BG = '#FBEDD6';
 const INK = '#1C1714';
 const YELLOW = '#F8D33A';
 const RED = '#E4483A';
+// Rouge plus clair pour l'étiquette : le texte noir se lit mieux dessus
+const STICKER_RED = '#F2705C';
 const EMPTY: [number, number, number] = [214, 201, 181];
 const EMPTY_CELL = `rgb(${EMPTY.join(',')})`;
 
@@ -476,12 +478,12 @@ function Main() {
         <SketchLineV width={compact ? 2 : 3} />
         <View style={[styles.sidebar, { width: sidebarW }, compact && styles.sidebarCompact]}>
           <View style={[styles.sticker, compact && { paddingVertical: 8, paddingHorizontal: 8 }]}>
-            <Sketch fill={RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
+            <Sketch fill={STICKER_RED} stroke={null} jitter={compact ? 3 : 5} seed={41} />
             <Text
               style={[
                 styles.stickerText,
-                longQuestion && { fontSize: 18, lineHeight: 23 },
-                compact && { fontSize: longQuestion ? 11 : 13, lineHeight: longQuestion ? 14 : 16 },
+                longQuestion && { fontSize: 18, lineHeight: 26 },
+                compact && { fontSize: longQuestion ? 11 : 13, lineHeight: longQuestion ? 17 : 19, letterSpacing: 0 },
               ]}
               numberOfLines={5}
               adjustsFontSizeToFit
@@ -580,7 +582,7 @@ const styles = StyleSheet.create({
   sidebar: { gap: 12, paddingLeft: 18 },
   sidebarCompact: { gap: 7, paddingLeft: 4 },
   sticker: { paddingVertical: 14, paddingHorizontal: 16, transform: [{ rotate: '-1.5deg' }] },
-  stickerText: { fontFamily: TITLE, fontSize: 22, lineHeight: 27, color: INK, textAlign: 'center', textTransform: 'uppercase' },
+  stickerText: { fontFamily: TITLE, fontSize: 22, lineHeight: 31, letterSpacing: 0.5, color: INK, textAlign: 'center', textTransform: 'uppercase' },
   button: {
     flex: 1,
     maxHeight: 90,
