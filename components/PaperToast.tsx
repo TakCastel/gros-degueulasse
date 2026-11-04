@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { Sketch } from './Sketch';
 
 export type Toast = { id: number; text: string };
@@ -7,11 +7,10 @@ export type Toast = { id: number; text: string };
 const NATIVE = Platform.OS !== 'web';
 
 /**
- * Bout de papier qu'on fait glisser sur la table : arrive du bord droit, reste un moment, puis repart.
+ * Bout de papier qu'on fait glisser sur la table : arrive du haut, reste un moment, puis repart.
  * Chaque nouveau toast (nouvel id) relance l'animation.
  */
 export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null; font: string; maxWidth: number; top: number }) {
-  const { width } = useWindowDimensions();
   const anim = useRef(new Animated.Value(0)).current;
   const [current, setCurrent] = useState<Toast | null>(null);
 
@@ -20,10 +19,10 @@ export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null
     setCurrent(toast);
     anim.setValue(0);
     const run = Animated.sequence([
-      // Poussé sur la table : arrive vite du bord droit et ralentit par frottement
+      // Glisse depuis le haut de l'écran et ralentit par frottement
       Animated.timing(anim, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE }),
       Animated.delay(2200),
-      // Repart par le même côté en accélérant
+      // Repart vers le haut en accélérant
       Animated.timing(anim, { toValue: 2, duration: 380, easing: Easing.in(Easing.cubic), useNativeDriver: NATIVE }),
     ]);
     run.start(({ finished }) => finished && setCurrent(null));
@@ -34,10 +33,10 @@ export function PaperToast({ toast, font, maxWidth, top }: { toast: Toast | null
 
   // Chaque papier a sa propre inclinaison
   const tilt = ((current.id * 37) % 7) - 3;
-  const away = width / 2 + maxWidth;
+  const away = -(top + 220);
   const style = {
     transform: [
-      { translateX: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [away, 0, away] }) },
+      { translateY: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [away, 0, away] }) },
       // Le papier pivote un peu en glissant, puis se stabilise
       { rotate: anim.interpolate({ inputRange: [0, 1, 2], outputRange: [`${tilt + 10}deg`, `${tilt}deg`, `${tilt + 8}deg`] }) },
     ],
