@@ -278,8 +278,8 @@ function Main() {
     }
     return best;
   }, [weeks.length, gridArea.w, gridArea.h, LABEL_W, GAP, HEAD_H, BAND_GAP]);
-  // Écran vraiment minuscule : on repasse en colonne qui défile (une ligne par semaine)
-  const horizontal = layout.cell >= 9;
+  // Sur téléphone (ou écran trop petit) : une ligne par semaine, qui défile
+  const horizontal = !compact && layout.cell >= 9;
   const MONTH_W = compact ? 40 : 46;
   const vCell = Math.floor(clamp((gridArea.w - MONTH_W - GAP * 6) / 7, 8, 34));
   const cell = horizontal ? layout.cell : vCell;
