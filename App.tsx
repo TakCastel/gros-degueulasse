@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   monthSide: { position: 'relative', textAlign: 'right', paddingRight: 4 },
   dayLabel: { fontFamily: TITLE, color: INK, textAlign: 'center' },
   cell: { borderRadius: 3 },
-  cellToday: { borderWidth: 2.5, borderColor: '#B8900A', backgroundColor: YELLOW },
+  cellToday: { borderWidth: 2.5, borderColor: RED },
   cellSelected: { borderWidth: 2.5, borderColor: INK },
 
   stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 24 },
